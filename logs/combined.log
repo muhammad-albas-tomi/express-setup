@@ -55,3 +55,4 @@
 2026-03-09 13:30:29 [31merror[39m: [31mError creating user: Email already registered[39m
 2026-03-09 13:30:29 [31merror[39m: [31mRegistration error: Email already registered[39m
 2026-03-09 13:30:47 [32minfo[39m: [32mUser logged in: albas@gmail.com[39m
+2026-03-09 13:41:37 [32minfo[39m: [32mUser created: albas2@gmail.com[39m
