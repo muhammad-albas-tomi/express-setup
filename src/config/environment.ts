@@ -1,0 +1,72 @@
+// src/config/environment.ts
+import dotenv from "dotenv";
+import path from "path";
+
+dotenv.config({ path: path.join(__dirname, "../../.env") });
+
+export const environment = {
+  // App
+  nodeEnv: process.env.NODE_ENV || "development",
+  port: parseInt(process.env.PORT || "3000", 10),
+  appName: process.env.APP_NAME || "Express App",
+  apiPrefix: process.env.API_PREFIX || "/api/v1",
+
+  // JWT
+  jwtSecret: process.env.JWT_SECRET!,
+  jwtAccessExpirationMinutes: parseInt(
+    process.env.JWT_ACCESS_EXPIRATION_MINUTES || "30",
+    10,
+  ),
+  jwtRefreshExpirationDays: parseInt(
+    process.env.JWT_REFRESH_EXPIRATION_DAYS || "7",
+    10,
+  ),
+
+  // Database
+  databaseUrl: process.env.DATABASE_URL!,
+
+  // Redis
+  redisUrl: process.env.REDIS_URL,
+
+  // CORS
+  corsOrigin: process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",")
+    : ["http://localhost:3000"],
+
+  // Rate Limiting
+  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10),
+  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || "100", 10),
+
+  // File Upload
+  maxFileSize: parseInt(process.env.MAX_FILE_SIZE || "5242880", 10),
+  allowedFileTypes: process.env.ALLOWED_FILE_TYPES
+    ? process.env.ALLOWED_FILE_TYPES.split(",")
+    : ["image/jpeg", "image/png"],
+
+  // Email
+  smtp: {
+    host: process.env.SMTP_HOST!,
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: {
+      user: process.env.SMTP_USER!,
+      pass: process.env.SMTP_PASS!,
+    },
+  },
+  emailFrom: process.env.EMAIL_FROM || "noreply@yourapp.com",
+
+  // Validation
+  isDevelopment: process.env.NODE_ENV === "development",
+  isProduction: process.env.NODE_ENV === "production",
+  isTest: process.env.NODE_ENV === "test",
+} as const;
+
+// Validate required environment variables
+const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET"] as const;
+const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  throw new Error(
+    `Missing required environment variables: ${missingEnvVars.join(", ")}`,
+  );
+}

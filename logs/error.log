@@ -1,0 +1,29 @@
+2026-03-09 13:17:19 [31merror[39m: [31mPrisma Error: [39m
+[31mInvalid `this.prismaModel.findFirst()` invocation in[39m
+[31m/Users/gmt-mac04/Documents/setup-express/src/repositories/base.repository.ts:68:37[39m
+
+[31m  65   select?: Record<string, any>,[39m
+[31m  66 ): Promise<T | null> {[39m
+[31m  67   try {[39m
+[31m→ 68     return await this.prismaModel.findFirst([39m
+[31mError validating `accelerateUrl`: the URL must start with the protocol `prisma://` or `prisma+postgres://`[39m
+2026-03-09 13:17:19 [31merror[39m: [31mError creating user: Database error: [39m
+[31mInvalid `this.prismaModel.findFirst()` invocation in[39m
+[31m/Users/gmt-mac04/Documents/setup-express/src/repositories/base.repository.ts:68:37[39m
+
+[31m  65   select?: Record<string, any>,[39m
+[31m  66 ): Promise<T | null> {[39m
+[31m  67   try {[39m
+[31m→ 68     return await this.prismaModel.findFirst([39m
+[31mError validating `accelerateUrl`: the URL must start with the protocol `prisma://` or `prisma+postgres://`[39m
+2026-03-09 13:17:19 [31merror[39m: [31mRegistration error: Database error: [39m
+[31mInvalid `this.prismaModel.findFirst()` invocation in[39m
+[31m/Users/gmt-mac04/Documents/setup-express/src/repositories/base.repository.ts:68:37[39m
+
+[31m  65   select?: Record<string, any>,[39m
+[31m  66 ): Promise<T | null> {[39m
+[31m  67   try {[39m
+[31m→ 68     return await this.prismaModel.findFirst([39m
+[31mError validating `accelerateUrl`: the URL must start with the protocol `prisma://` or `prisma+postgres://`[39m
+2026-03-09 13:30:29 [31merror[39m: [31mError creating user: Email already registered[39m
+2026-03-09 13:30:29 [31merror[39m: [31mRegistration error: Email already registered[39m

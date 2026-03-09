@@ -1,0 +1,57 @@
+2026-03-09 13:04:13 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 13:04:13 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 13:04:13 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 13:11:52 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 13:11:52 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 13:11:52 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 13:12:08 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 13:12:08 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 13:12:08 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 13:15:55 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 13:15:55 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 13:15:55 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 13:17:19 [31merror[39m: [31mPrisma Error: [39m
+[31mInvalid `this.prismaModel.findFirst()` invocation in[39m
+[31m/Users/gmt-mac04/Documents/setup-express/src/repositories/base.repository.ts:68:37[39m
+
+[31m  65   select?: Record<string, any>,[39m
+[31m  66 ): Promise<T | null> {[39m
+[31m  67   try {[39m
+[31m→ 68     return await this.prismaModel.findFirst([39m
+[31mError validating `accelerateUrl`: the URL must start with the protocol `prisma://` or `prisma+postgres://`[39m
+2026-03-09 13:17:19 [31merror[39m: [31mError creating user: Database error: [39m
+[31mInvalid `this.prismaModel.findFirst()` invocation in[39m
+[31m/Users/gmt-mac04/Documents/setup-express/src/repositories/base.repository.ts:68:37[39m
+
+[31m  65   select?: Record<string, any>,[39m
+[31m  66 ): Promise<T | null> {[39m
+[31m  67   try {[39m
+[31m→ 68     return await this.prismaModel.findFirst([39m
+[31mError validating `accelerateUrl`: the URL must start with the protocol `prisma://` or `prisma+postgres://`[39m
+2026-03-09 13:17:19 [31merror[39m: [31mRegistration error: Database error: [39m
+[31mInvalid `this.prismaModel.findFirst()` invocation in[39m
+[31m/Users/gmt-mac04/Documents/setup-express/src/repositories/base.repository.ts:68:37[39m
+
+[31m  65   select?: Record<string, any>,[39m
+[31m  66 ): Promise<T | null> {[39m
+[31m  67   try {[39m
+[31m→ 68     return await this.prismaModel.findFirst([39m
+[31mError validating `accelerateUrl`: the URL must start with the protocol `prisma://` or `prisma+postgres://`[39m
+2026-03-09 13:17:49 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 13:17:49 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 13:17:49 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 13:23:08 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 13:23:08 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 13:23:08 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 13:23:45 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 13:23:45 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 13:23:45 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 13:23:58 [32minfo[39m: [32mPrisma Info: Starting a postgresql pool with 17 connections.[39m
+2026-03-09 13:23:59 [32minfo[39m: [32mUser created: albas@gmail.com[39m
+2026-03-09 13:27:31 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 13:27:31 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 13:27:31 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 13:29:24 [32minfo[39m: [32mUser created: testuser@example.com[39m
+2026-03-09 13:30:29 [31merror[39m: [31mError creating user: Email already registered[39m
+2026-03-09 13:30:29 [31merror[39m: [31mRegistration error: Email already registered[39m
+2026-03-09 13:30:47 [32minfo[39m: [32mUser logged in: albas@gmail.com[39m
