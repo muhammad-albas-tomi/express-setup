@@ -62,3 +62,45 @@
 2026-03-09 14:41:59 [32minfo[39m: [32m🚀 Server running on port 3000[39m
 2026-03-09 14:41:59 [32minfo[39m: [32m📝 Environment: development[39m
 2026-03-09 14:41:59 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 15:17:55 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 15:17:55 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 15:17:55 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 15:17:58 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 15:17:58 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 15:17:58 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 15:18:24 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 15:18:24 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 15:18:24 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 15:18:34 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 15:18:34 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 15:18:34 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 15:18:53 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 15:18:53 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 15:18:53 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-09 15:27:53 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-09 15:27:53 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-09 15:27:53 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-10 10:47:57 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-10 10:47:57 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-10 10:47:57 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-10 10:49:23 [32minfo[39m: [32mPrisma Info: Starting a postgresql pool with 17 connections.[39m
+2026-03-10 10:49:23 [32minfo[39m: [32mUser logged in: albas@gmail.com[39m
+2026-03-10 10:49:49 [32minfo[39m: [32mUser logged in: albas@gmail.com[39m
+2026-03-10 10:50:08 [31merror[39m: [31mToken verification error: jwt malformed[39m
+2026-03-10 10:50:08 [31merror[39m: [31mInvalid token[39m
+2026-03-10 10:57:08 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-10 10:57:08 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-10 10:57:08 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-10 10:57:35 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-10 10:57:35 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-10 10:57:35 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-10 10:57:42 [32minfo[39m: [32m🚀 Server running on port 3000[39m
+2026-03-10 10:57:42 [32minfo[39m: [32m📝 Environment: development[39m
+2026-03-10 10:57:42 [32minfo[39m: [32m🔗 API: http://localhost:3000/api/v1[39m
+2026-03-10 10:57:46 [32minfo[39m: [32mPrisma Info: Starting a postgresql pool with 17 connections.[39m
+2026-03-10 10:57:46 [32minfo[39m: [32mUser logged in: albas@gmail.com[39m
+2026-03-10 10:58:08 [32minfo[39m: [32mUser logged in: albas@gmail.com[39m
+2026-03-10 10:58:16 [32minfo[39m: [32mUser created: albass@gmail.com[39m
+2026-03-10 11:00:14 [31merror[39m: [31mRefresh token error: Invalid refresh token[39m
+2026-03-10 11:00:14 [31merror[39m: [31mInvalid refresh token[39m
+2026-03-10 11:01:08 [32minfo[39m: [32mToken refreshed for user: albas@gmail.com[39m

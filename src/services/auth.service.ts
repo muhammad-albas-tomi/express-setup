@@ -31,15 +31,23 @@ export class AuthService {
   private static readonly REFRESH_TOKEN_EXPIRY = "7d";
   private static readonly REFRESH_TOKEN_SIZE = 32;
 
-  private async generateToken(userId: string, expires: string): Promise<string> {
+  private async generateToken(
+    userId: string,
+    expires: string,
+  ): Promise<string> {
     const payload = { sub: userId, type: "access" };
     return jwt.sign(payload, environment.jwtSecret, {
       expiresIn: expires,
     } as jwt.SignOptions);
   }
 
-  private async generateRefreshToken(): Promise<{ token: string; expires: Date }> {
-    const token = crypto.randomBytes(AuthService.REFRESH_TOKEN_SIZE).toString("hex");
+  private async generateRefreshToken(): Promise<{
+    token: string;
+    expires: Date;
+  }> {
+    const token = crypto
+      .randomBytes(AuthService.REFRESH_TOKEN_SIZE)
+      .toString("hex");
     const expires = new Date();
     expires.setDate(expires.getDate() + 7);
 
@@ -66,14 +74,8 @@ export class AuthService {
     accessExpires.setMinutes(accessExpires.getMinutes() + 30);
 
     return {
-      access: {
-        token: accessToken,
-        expiresAt: accessExpires,
-      },
-      refresh: {
-        token: refreshToken,
-        expiresAt: expires,
-      },
+      accessToken: accessToken,
+      refreshToken: refreshToken,
     };
   }
 
@@ -128,7 +130,7 @@ export class AuthService {
       const tokens = await this.generateAuthTokens(user);
 
       // Update session info
-      const refreshToken = tokens.refresh.token;
+      const refreshToken = tokens.refreshToken;
       await prisma.session.update({
         where: { token: refreshToken },
         data: {

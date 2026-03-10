@@ -52,12 +52,6 @@ export interface ILoginResponse {
 }
 
 export interface ITokens {
-  access: {
-    token: string;
-    expiresAt: Date;
-  };
-  refresh: {
-    token: string;
-    expiresAt: Date;
-  };
+  accessToken: string;
+  refreshToken: string;
 }

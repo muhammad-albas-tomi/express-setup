@@ -27,3 +27,7 @@
 [31mError validating `accelerateUrl`: the URL must start with the protocol `prisma://` or `prisma+postgres://`[39m
 2026-03-09 13:30:29 [31merror[39m: [31mError creating user: Email already registered[39m
 2026-03-09 13:30:29 [31merror[39m: [31mRegistration error: Email already registered[39m
+2026-03-10 10:50:08 [31merror[39m: [31mToken verification error: jwt malformed[39m
+2026-03-10 10:50:08 [31merror[39m: [31mInvalid token[39m
+2026-03-10 11:00:14 [31merror[39m: [31mRefresh token error: Invalid refresh token[39m
+2026-03-10 11:00:14 [31merror[39m: [31mInvalid refresh token[39m
