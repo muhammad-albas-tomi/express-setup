@@ -104,3 +104,6 @@
 2026-03-10 11:00:14 [31merror[39m: [31mRefresh token error: Invalid refresh token[39m
 2026-03-10 11:00:14 [31merror[39m: [31mInvalid refresh token[39m
 2026-03-10 11:01:08 [32minfo[39m: [32mToken refreshed for user: albas@gmail.com[39m
+2026-03-10 12:34:31 [32minfo[39m: [32mSIGINT received. Shutting down gracefully...[39m
+2026-03-10 12:34:31 [32minfo[39m: [32mHTTP server closed [39m
+2026-03-10 12:34:31 [32minfo[39m: [32mDatabase disconnected[39m
