@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import morgan from "morgan";
+import cookieParser from "cookie-parser";
 import { errorConverter, errorHandler } from "@middlewares/error.middleware";
 
 import { environment } from "@config/environment";
@@ -25,6 +26,9 @@ app.use(
 
 // Rate limiting
 app.use(environment.apiPrefix, rateLimiter);
+
+// Cookie parser (harus sebelum body parser)
+app.use(cookieParser());
 
 // Body parsing
 app.use(express.json({ limit: "10mb" }));

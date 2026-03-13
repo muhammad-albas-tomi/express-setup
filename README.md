@@ -332,6 +332,236 @@ src/
 GET /health
 ```
 
+### Authentication Endpoints
+
+**Note**: This project uses **JWT with httpOnly cookie refresh tokens** for secure authentication.
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| `POST` | `/api/v1/auth/register` | Register new user | No |
+| `POST` | `/api/v1/auth/login` | Login user | No |
+| `POST` | `/api/v1/auth/logout` | Logout user | Yes |
+| `POST` | `/api/v1/auth/refresh-token` | Refresh access token | No (cookie) |
+| `GET` | `/api/v1/auth/profile` | Get current user profile | Yes |
+| `GET` | `/api/v1/auth/sessions` | Get active sessions | Yes |
+| `DELETE` | `/api/v1/auth/sessions/:id` | Revoke specific session | Yes |
+| `DELETE` | `/api/v1/auth/sessions` | Revoke all sessions | Yes |
+
+#### Authentication Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     AUTHENTICATION FLOW                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. REGISTER/LOGIN                                              │
+│     POST /api/v1/auth/login                                     │
+│     → Server validates credentials                              │
+│     → Generates access token (JWT, 30 min)                      │
+│     → Generates refresh token (random, 7 days)                  │
+│     → Saves refresh token to database                           │
+│     → Sets refresh token in httpOnly cookie                     │
+│     → Returns access token in response body                     │
+│                                                                 │
+│  2. ACCESS PROTECTED ROUTE                                      │
+│     GET /api/v1/auth/profile                                    │
+│     Authorization: Bearer <access_token>                        │
+│     → Middleware verifies JWT                                   │
+│     → Checks user exists in DB                                  │
+│     → Proceeds to controller                                    │
+│                                                                 │
+│  3. REFRESH TOKEN (when access expires)                         │
+│     POST /api/v1/auth/refresh-token                             │
+│     → Reads refresh token from httpOnly cookie                  │
+│     → Validates against database                                │
+│     → Deletes old refresh token (rotation)                      │
+│     → Generates new access + refresh tokens                     │
+│     → Sets new refresh token in cookie                          │
+│     → Returns new access token                                  │
+│                                                                 │
+│  4. LOGOUT                                                      │
+│     POST /api/v1/auth/logout                                    │
+│     → Deletes refresh token from database                       │
+│     → Clears httpOnly cookie                                    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Security Features
+
+| Feature | Protection |
+|---------|------------|
+| **httpOnly cookie** | Prevents XSS (JavaScript cannot access) |
+| **Secure flag** | Only sent over HTTPS |
+| **SameSite=strict** | Prevents CSRF attacks |
+| **Token rotation** | Old token invalidated on refresh |
+| **DB storage** | Tokens can be revoked |
+
+#### Request/Response Examples
+
+**Register:**
+```bash
+POST /api/v1/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "name": "John Doe"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Registration successful",
+  "data": {
+    "user": { "id": "...", "email": "...", "name": "..." },
+    "tokens": {
+      "accessToken": "eyJhbG..."
+    }
+  }
+}
+```
+**Note**: Refresh token is set in httpOnly cookie (not in response body)
+
+**Login:**
+```bash
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Refresh Token:**
+```bash
+POST /api/v1/auth/refresh-token
+# No body needed - refresh token sent automatically from cookie
+```
+
+**Logout:**
+```bash
+POST /api/v1/auth/logout
+Authorization: Bearer <access_token>
+```
+
+#### Client-Side Implementation
+
+```typescript
+// After login/register, save access token
+const { accessToken } = response.data.tokens;
+localStorage.setItem('accessToken', accessToken);
+
+// For API requests, include access token
+const response = await fetch('http://localhost:3000/api/v1/auth/profile', {
+  headers: {
+    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+  }
+});
+
+// Handle 401 - refresh token automatically
+if (response.status === 401) {
+  const refreshResponse = await fetch('http://localhost:3000/api/v1/auth/refresh-token', {
+    method: 'POST',
+    credentials: 'include' // Important: include cookies
+  });
+  const { accessToken: newToken } = await refreshResponse.json();
+  localStorage.setItem('accessToken', newToken);
+  // Retry original request
+}
+```
+
+#### Testing with Postman
+
+**Important**: Refresh token endpoint uses **httpOnly cookie**, NOT request body!
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         POSTMAN TESTING GUIDE                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  1. LOGIN (First Request)                                              │
+│     ──────────────────────────                                         │
+│     POST http://localhost:3000/api/v1/auth/login                       │
+│     Body (raw JSON):                                                   │
+│     {                                                                  │
+│       "email": "user@example.com",                                     │
+│       "password": "password123"                                       │
+│     }                                                                  │
+│                                                                         │
+│     Response:                                                          │
+│     - 200 OK                                                           │
+│     - access_token in response body                                    │
+│     - refresh_token in Set-Cookie header (Postman auto-saves)          │
+│                                                                         │
+│  2. REFRESH TOKEN (Subsequent Requests)                                │
+│     ─────────────────────────────────────────                          │
+│     POST http://localhost:3000/api/v1/auth/refresh-token               │
+│     Body: EMPTY (not needed!)                                          │
+│     Headers:                                                           │
+│     - Authorization: NOT NEEDED                                        │
+│     - Content-Type: application/json (optional)                        │
+│                                                                         │
+│     Postman AUTOMATICALLY sends:                                        │
+│     - Cookie: refresh_token=<token_from_login>                         │
+│                                                                         │
+│     Response: 200 OK with new access_token                             │
+│                                                                         │
+│  3. CHECKING COOKIES IN POSTMAN                                        │
+│     ────────────────────────────────────                               │
+│     - Click "Cookies" icon (glass jar) below URL bar                  │
+│     - Select domain "localhost:3000"                                   │
+│     - You'll see "refresh_token" cookie there                          │
+│                                                                         │
+│  4. CLEARING COOKIES (To Test Invalid Token)                           │
+│     ─────────────────────────────────────────────                      │
+│     Method 1:                                                          │
+│     - Open Cookies manager → Delete "refresh_token"                    │
+│                                                                         │
+│     Method 2 (Postman Script):                                         │
+│     - Add to Tests tab:                                                │
+│       pm.cookies.remove('refresh_token', 'localhost');                 │
+│                                                                         │
+│     After clearing, refresh endpoint will return 401 Unauthorized      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Common Mistake**: Sending refresh token in body will be **ignored**!
+
+```bash
+# ❌ WRONG - Body is ignored
+POST /api/v1/auth/refresh-token
+Body: { "refreshToken": "some_token" }
+
+# ✅ CORRECT - Cookie is used automatically
+POST /api/v1/auth/refresh-token
+# (No body needed - Postman sends cookie automatically)
+```
+
+#### Testing with cURL
+
+```bash
+# 1. Login and save cookie
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password123"}' \
+  -c cookies.txt
+
+# 2. Refresh token using saved cookie
+curl -X POST http://localhost:3000/api/v1/auth/refresh-token \
+  -b cookies.txt \
+  -H "Content-Type: application/json"
+
+# 3. Test without cookie (should return 401)
+curl -X POST http://localhost:3000/api/v1/auth/refresh-token \
+  -H "Content-Type: application/json"
+```
+
 ### API Routes
 | Route | Base Path | Description |
 |-------|-----------|-------------|

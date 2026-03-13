@@ -31,3 +31,13 @@
 2026-03-10 10:50:08 [31merror[39m: [31mInvalid token[39m
 2026-03-10 11:00:14 [31merror[39m: [31mRefresh token error: Invalid refresh token[39m
 2026-03-10 11:00:14 [31merror[39m: [31mInvalid refresh token[39m
+2026-03-13 09:51:35 [31merror[39m: [31mToken verification error: invalid signature[39m
+2026-03-13 09:51:35 [31merror[39m: [31mInvalid token[39m
+2026-03-13 09:52:00 [31merror[39m: [31mToken verification error: invalid signature[39m
+2026-03-13 09:52:00 [31merror[39m: [31mInvalid token[39m
+2026-03-13 09:52:37 [31merror[39m: [31mToken verification error: invalid signature[39m
+2026-03-13 09:52:37 [31merror[39m: [31mInvalid token[39m
+2026-03-13 09:57:31 [31merror[39m: [31mResource not found[39m
+2026-03-13 09:57:32 [31merror[39m: [31mResource not found[39m
+2026-03-13 11:23:25 [31merror[39m: [31mValidation failed[39m
+2026-03-13 11:27:00 [31merror[39m: [31mValidation failed[39m

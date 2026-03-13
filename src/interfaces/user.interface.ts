@@ -48,10 +48,10 @@ export interface ILoginInput {
 
 export interface ILoginResponse {
   user: IUserResponse;
-  tokens: ITokens;
+  tokens?: ITokens;
 }
 
 export interface ITokens {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string; // Optional karena akan disimpan di httpOnly cookie
 }

@@ -1576,20 +1576,657 @@ export class UserController {
 
 ### Struktur Token
 
+#### Access Token (JWT)
+
 ```typescript
 // Access Token Payload
 {
-  "sub": "user-id",
-  "type": "access",
-  "iat": 1234567890,
-  "exp": 1234567890
+  "sub": "user-id",           // User ID
+  "type": "access",           // Token type
+  "iat": 1234567890,          // Issued at
+  "exp": 1234567890           // Expiration (30 menit)
 }
-
-// Refresh Token
-- Random 32-byte hex string
-- Disimpan di database (tabel sessions)
-- Valid selama 7 hari
 ```
+
+**Characteristics**:
+- Disimpan di client (localStorage/sessionStorage)
+- Dikirim di setiap request via `Authorization: Bearer <token>` header
+- Valid selama **30 menit**
+- Stateless - tidak perlu validasi ke database
+
+#### Refresh Token
+
+```typescript
+// Refresh Token
+- Random 32-byte hex string (contoh: "a1b2c3d4e5f6...")
+- Disimpan di database (tabel sessions)
+- Disimpan di httpOnly cookie (browser)
+- Valid selama **7 hari**
+```
+
+**Characteristics**:
+- Disimpan di **httpOnly cookie** (JavaScript tidak bisa akses)
+- Dikirim otomatis oleh browser di setiap request
+- Stateful - divalidasi ke database
+- Bisa di-revoke (logout, revoke session)
+
+---
+
+### HttpOnly Cookie untuk Refresh Token
+
+#### Kenapa HttpOnly Cookie?
+
+```typescript
+// cookie-parser middleware sudah aktif di app.ts
+// Cookie config di src/utils/cookie-options.ts
+
+export const COOKIE_CONFIG: CookieOptions = {
+  httpOnly: true,      // JS tidak bisa baca cookie (XSS protection)
+  secure: true,        // Hanya kirim via HTTPS (production)
+  sameSite: "strict",  // Mencegah CSRF attack
+  path: "/",           // Available di semua path
+  maxAge: 7 * 24 * 60 * 60, // 7 hari
+};
+```
+
+| Attribute | Fungsi |
+|-----------|--------|
+| `httpOnly: true` | JavaScript TIDAK bisa akses cookie → mencegah XSS mencuri token |
+| `secure: true` | Hanya kirim via HTTPS → mencegah MITM attack |
+| `sameSite: "strict"` | Mencegah CSRF attack |
+| `maxAge: 604800` | 7 hari (sesuai refresh token expiry) |
+
+#### Security Benefits
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         SECURITY COMPARISON                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  BEFORE (LocalStorage)               AFTER (HttpOnly Cookie)            │
+│  ─────────────────────               ──────────────────────────          │
+│  Refresh token di body               Refresh token di cookie             │
+│  ↓                                   ↓                                  │
+│  Client simpan di localStorage       Browser simpan di cookie           │
+│  ↓                                   ↓                                  │
+│  XSS bisa baca localStorage          JS TIDAK bisa baca httpOnly        │
+│  ↓                                   ↓                                  │
+│  Token bisa dicuri!                  Token aman dari XSS!               │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Token Rotation
+
+Setiap kali refresh token digunakan, token lama dihapus dan token baru dibuat:
+
+```typescript
+// refreshAuth flow:
+1. Baca refresh token dari cookie
+2. Validasi ke database
+3. Hapus refresh token lama dari database
+4. Generate access token baru
+5. Generate refresh token baru
+6. Set refresh token baru ke cookie (overwrite lama)
+7. Return access token (refresh token di cookie, bukan di body)
+```
+
+**Benefits**:
+- Jika token lama dicuri, hanya valid sekali (saat direfresh)
+- Token selalu berubah → mempersulit attacker
+
+---
+
+### Implementasi Detail: HttpOnly Cookie
+
+#### 1. Cookie-Parser Middleware
+
+Cookie-parser adalah Express middleware yang parse cookie dari request header dan membuatnya available di `req.cookies`.
+
+**Setup di `src/app.ts`:**
+```typescript
+import cookieParser from "cookie-parser";
+
+const app = express();
+
+// Cookie parser harus didaftarkan SEBELUM routes
+app.use(cookieParser());
+//     ↑
+//     Middleware ini parse Cookie header dan populate req.cookies
+```
+
+**Cara Kerja:**
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         COOKIE-PARSER FLOW                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  1. Browser mengirim request dengan Cookie header:                     │
+│     Cookie: refresh_token=a1b2c3d4...; session_id=xyz123               │
+│                                                                         │
+│  2. cookie-parser middleware intercept request:                        │
+│     - Parse Cookie header                                              │
+│     - Split by semicolon (;)                                            │
+│     - Parse key=value pairs                                             │
+│     - Decode URL-encoded values                                         │
+│                                                                         │
+│  3. Populate req.cookies object:                                       │
+│     req.cookies = {                                                     │
+│       refresh_token: "a1b2c3d4...",                                     │
+│       session_id: "xyz123"                                             │
+│     }                                                                   │
+│                                                                         │
+│  4. Controller bisa akses cookie:                                       │
+│     const token = req.cookies?.refresh_token;                          │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**TypeScript Types di `src/types/global.d.ts`:**
+```typescript
+declare namespace Express {
+  interface Request {
+    // Cookie dari request (di-populate oleh cookie-parser)
+    cookies?: {
+      [key: string]: string | undefined;
+    };
+    // Signed cookies (jika menggunakan secret)
+    signedCookies?: {
+      [key: string]: string | undefined;
+    };
+  }
+}
+```
+
+---
+
+#### 2. Cookie Configuration
+
+**File: `src/utils/cookie-options.ts`**
+
+```typescript
+import { CookieOptions } from "express";
+
+// Base configuration untuk refresh token cookie
+export const COOKIE_CONFIG: CookieOptions = {
+  httpOnly: true,           // ← JavaScript TIDAK bisa baca cookie ini
+  secure: true,             // ← Hanya kirim via HTTPS
+  sameSite: "strict",       // ← Mencegah CSRF
+  path: "/",                // ← Cookie available di semua path
+  maxAge: 7 * 24 * 60 * 60, // ← 7 hari (dalam detik)
+};
+
+// Nama cookie untuk refresh token
+export const REFRESH_TOKEN_COOKIE = "refresh_token";
+
+// Dynamic config untuk development vs production
+export const getCookieConfig = (): CookieOptions => {
+  return {
+    ...COOKIE_CONFIG,
+    // Di development (HTTP), secure: false agar cookie bisa dikirim
+    // Di production (HTTPS), secure: true untuk security
+    secure: process.env.NODE_ENV === "production",
+  };
+};
+```
+
+**Penjelasan CookieOptions:**
+
+| Option | Type | Default | Keterangan |
+|--------|------|---------|------------|
+| `httpOnly` | boolean | false | JS tidak bisa akses via `document.cookie` |
+| `secure` | boolean | false | Hanya kirim via HTTPS |
+| `sameSite` | string/boolean | lax | `'strict'` = hanya same-site, `'lax'` = some cross-site, `true` = modern strict, `false` = no restriction |
+| `path` | string | `/` | URL path dimana cookie available |
+| `maxAge` | number | - | Expiry dalam milliseconds (server-side) |
+| `expires` | Date | - | Expiry date (client-side) |
+| `domain` | string | - | Domain dimana cookie valid |
+| `signed` | boolean | false | Sign cookie untuk detect tampering |
+
+---
+
+#### 3. Setting Cookie di Controller
+
+**File: `src/controllers/auth.controller.ts`**
+
+```typescript
+import { Response } from "express";
+import { getCookieConfig, REFRESH_TOKEN_COOKIE } from "@/utils/cookie-options";
+
+export class AuthController {
+  login = catchAsync(async (req: Request, res: Response) => {
+    const { email, password } = req.body;
+    const result = await authService.login(email, password);
+
+    // ─────────────────────────────────────────────────────────
+    // SET REFRESH TOKEN KE HTTPONLY COOKIE
+    // ─────────────────────────────────────────────────────────
+    res.cookie(
+      REFRESH_TOKEN_COOKIE,        // Nama cookie: "refresh_token"
+      result.tokens.refreshToken,  // Value: refresh token dari DB
+      getCookieConfig(),           // Options: httpOnly, secure, dll
+    );
+    // ↑
+    // Express akan mengirim Set-Cookie header di response:
+    // Set-Cookie: refresh_token=a1b2c3...; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800
+
+    // Response tanpa refreshToken di body
+    res.json(ApiResponse.success("Login successful", {
+      user: result.user,
+      tokens: { accessToken: result.tokens.accessToken }
+    }));
+  });
+
+  logout = catchAsync(async (req: Request, res: Response) => {
+    // Hapus session dari DB
+    const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
+    if (refreshToken) {
+      await authService.logout(refreshToken);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // CLEAR COOKIE DARI BROWSER
+    // ─────────────────────────────────────────────────────────
+    res.clearCookie(REFRESH_TOKEN_COOKIE, { path: "/" });
+    // ↑
+    // Express akan mengirim Set-Cookie header untuk menghapus:
+    // Set-Cookie: refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT
+
+    res.json(ApiResponse.success("Logout successful"));
+  });
+
+  refreshToken = catchAsync(async (req: Request, res: Response) => {
+    // ─────────────────────────────────────────────────────────
+    // BACA REFRESH TOKEN DARI COOKIE
+    // ─────────────────────────────────────────────────────────
+    const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
+    //                        ↑
+    //              cookie-parser populate req.cookies
+
+    if (!refreshToken) {
+      throw new ApiError(httpStatus.UNAUTHORIZED, "Refresh token not found");
+    }
+
+    const tokens = await authService.refreshAuth(refreshToken);
+
+    // ─────────────────────────────────────────────────────────
+    // SET REFRESH TOKEN BARU (TOKEN ROTATION)
+    // ─────────────────────────────────────────────────────────
+    res.cookie(
+      REFRESH_TOKEN_COOKIE,
+      tokens.refreshToken,  // Token baru (old sudah dihapus dari DB)
+      getCookieConfig(),
+    );
+    // ↑
+    // Cookie lama di-overwrite dengan cookie baru
+
+    res.json(ApiResponse.success("Token refreshed", {
+      tokens: { accessToken: tokens.accessToken }
+    }));
+  });
+}
+```
+
+---
+
+#### 4. Complete Request/Response Flow
+
+**Login Request:**
+```http
+POST /api/v1/auth/login HTTP/1.1
+Host: localhost:3000
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+**Login Response:**
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+Set-Cookie: refresh_token=a1b2c3d4e5f6...; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800
+
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": { "id": "xxx", "email": "user@example.com", ... },
+    "tokens": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    }
+  }
+}
+```
+**Note**:
+- `Set-Cookie` header berisi refresh token
+- Response body TIDAK mengandung refresh token
+- Browser otomatis simpan cookie dan kirim di request selanjutnya
+
+**Protected Request (dengan cookie):**
+```http
+GET /api/v1/auth/profile HTTP/1.1
+Host: localhost:3000
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Cookie: refresh_token=a1b2c3d4e5f6...
+```
+**Note**:
+- `Authorization` header berisi access token
+- `Cookie` header dikirim otomatis oleh browser
+- Server membaca access token untuk authenticate
+- Server membaca cookie hanya saat perlu refresh token
+
+**Refresh Token Request:**
+```http
+POST /api/v1/auth/refresh-token HTTP/1.1
+Host: localhost:3000
+Content-Type: application/json
+Cookie: refresh_token=a1b2c3d4e5f6...
+```
+**Note**:
+- Tidak perlu `Authorization` header (access token mungkin expired)
+- Browser otomatis kirim `Cookie` header
+- Server baca refresh token dari `req.cookies`
+
+**Refresh Token Response:**
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+Set-Cookie: refresh_token=NEW_TOKEN_XYZ...; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800
+
+{
+  "success": true,
+  "message": "Token refreshed successfully",
+  "data": {
+    "tokens": {
+      "accessToken": "NEW_ACCESS_TOKEN..."
+    }
+  }
+}
+```
+**Note**:
+- `Set-Cookie` dengan refresh token BARU (rotation)
+- Access token baru di response body
+
+**Logout Request:**
+```http
+POST /api/v1/auth/logout HTTP/1.1
+Host: localhost:3000
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Cookie: refresh_token=a1b2c3d4e5f6...
+```
+
+**Logout Response:**
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+Set-Cookie: refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT
+
+{
+  "success": true,
+  "message": "Logout successful"
+}
+```
+**Note**:
+- `Set-Cookie` dengan expiry di masa lalu = browser delete cookie
+- `Expires=Thu, 01 Jan 1970 00:00:00 GMT` = Unix epoch 0
+
+---
+
+#### 5. Browser DevTools: Viewing Cookies
+
+**Chrome/Edge DevTools:**
+```
+1. Buka DevTools (F12)
+2. Tab "Application"
+3. Sidebar: "Cookies" → pilih domain
+4. Lihat cookie "refresh_token"
+   - Value: (tidak bisa dilihat karena httpOnly)
+   - HttpOnly: ✓
+   - Secure: ✓
+   - SameSite: Strict
+```
+
+**Firefox DevTools:**
+```
+1. Buka DevTools (F12)
+2. Tab "Storage"
+3. Sidebar: "Cookies" → pilih domain
+4. Lihat cookie "refresh_token"
+```
+
+**Note**: Cookies dengan `httpOnly: true` akan menampilkan nilai sebagai "HttpOnly;" atau hidden di DevTools, tapi tetap dikirim oleh browser.
+
+---
+
+### Authentication Endpoints
+
+#### Register
+
+```bash
+POST /api/v1/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123!",
+  "name": "John Doe"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Registration successful",
+  "data": {
+    "user": {
+      "id": "uuid",
+      "email": "user@example.com",
+      "name": "John Doe",
+      "role": "USER"
+    },
+    "tokens": {
+      "accessToken": "eyJhbG..."
+    }
+  }
+}
+```
+
+**Cookie Set**: `refresh_token=<token>; HttpOnly; Secure; SameSite=Strict`
+
+#### Login
+
+```bash
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123!"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": { ... },
+    "tokens": {
+      "accessToken": "eyJhbG..."
+    }
+  }
+}
+```
+
+**Cookie Set**: `refresh_token=<token>; HttpOnly; Secure; SameSite=Strict`
+
+#### Refresh Token
+
+```bash
+POST /api/v1/auth/refresh-token
+# Tidak perlu body - refresh token diambil dari cookie otomatis
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Token refreshed successfully",
+  "data": {
+    "tokens": {
+      "accessToken": "eyJhbG..."
+    }
+  }
+}
+```
+
+**Cookie Set**: `refresh_token=<NEW_TOKEN>; HttpOnly; Secure; SameSite=Strict` (rotation)
+
+#### Logout
+
+```bash
+POST /api/v1/auth/logout
+Authorization: Bearer <access_token>
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Logout successful"
+}
+```
+
+**Cookie Cleared**: `refresh_token` dihapus dari browser
+
+---
+
+### Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    AUTHENTICATION FLOW                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  1. USER LOGIN                                                          │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ POST /api/v1/auth/login { email, password }                     │   │
+│  │                                                                  │   │
+│  │ Server:                                                          │   │
+│  │  1. Validate password                                           │   │
+│  │  2. Generate access token (JWT, 30 menit)                       │   │
+│  │  3. Generate refresh token (random, 7 hari)                     │   │
+│  │  4. Simpan refresh token ke DB (sessions table)                 │   │
+│  │  5. Set refresh token ke httpOnly cookie                        │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│     │                                                                   │
+│     ▼                                                                   │
+│  Client menerima:                                                       │
+│  - Access token (di body) → simpan ke localStorage                      │
+│  - Refresh token (di cookie) → otomatis dikirim browser                 │
+│                                                                         │
+│  2. ACCESS PROTECTED ROUTE                                             │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ GET /api/v1/users/profile                                       │   │
+│  │ Authorization: Bearer <access_token>                            │   │
+│  │                                                                  │   │
+│  │ Server:                                                          │   │
+│  │  1. authenticate middleware verify JWT                          │   │
+│  │  2. Cek user ada di DB                                          │   │
+│  │  3. Set req.user = user data                                    │   │
+│  │  4. Lanjut ke controller                                        │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│  3. ACCESS TOKEN EXPIRED (setelah 30 menit)                            │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ POST /api/v1/auth/refresh-token                                 │   │
+│  │ (Browser otomatis kirim refresh_token cookie)                   │   │
+│  │                                                                  │   │
+│  │ Server:                                                          │   │
+│  │  1. Baca refresh token dari cookie                              │   │
+│  │  2. Cek session di DB                                           │   │
+│  │  3. Delete refresh token lama (rotation)                        │   │
+│  │  4. Generate access token baru                                  │   │
+│  │  5. Generate refresh token baru                                 │   │
+│  │  6. Set refresh token baru ke cookie                            │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│     │                                                                   │
+│     ▼                                                                   │
+│  Client menerima access token baru (refresh token di cookie baru)       │
+│                                                                         │
+│  4. LOGOUT                                                              │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ POST /api/v1/auth/logout                                        │   │
+│  │                                                                  │   │
+│  │ Server:                                                          │   │
+│  │  1. Baca refresh token dari cookie                              │   │
+│  │  2. Delete session dari DB                                      │   │
+│  │  3. Clear refresh_token cookie                                  │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Session Management
+
+#### Get Active Sessions
+
+```bash
+GET /api/v1/auth/sessions
+Authorization: Bearer <access_token>
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Sessions retrieved successfully",
+  "data": [
+    {
+      "id": "uuid",
+      "token": "a1b2c3...",
+      "userId": "user-uuid",
+      "ipAddress": "192.168.1.1",
+      "userAgent": "Mozilla/5.0...",
+      "expiresAt": "2026-03-20T10:00:00Z",
+      "createdAt": "2026-03-13T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### Revoke Specific Session
+
+```bash
+DELETE /api/v1/auth/sessions/:sessionId
+Authorization: Bearer <access_token>
+```
+
+**Use Case**: Logout dari device lain
+
+#### Revoke All Sessions
+
+```bash
+DELETE /api/v1/auth/sessions
+Authorization: Bearer <access_token>
+```
+
+**Use Case**: "Logout from all devices"
 
 ---
 
@@ -1740,7 +2377,269 @@ describe("UserService", () => {
 
 ---
 
-## 13. Deployment
+## 13. Troubleshooting Authentication
+
+### Problem: Refresh Token Always Works (Even with Random Token)
+
+**Symptom**:
+- Mengirim random refresh token di body tapi tetap berhasil
+- Response 200 OK dengan access token baru
+
+**Cause**:
+Refresh token diambil dari **httpOnly cookie**, bukan dari request body. Postman/browser mengirim cookie yang valid dari login sebelumnya.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    WHAT HAPPENS BEHIND THE SCENE                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Your Request:                                                          │
+│  POST /api/v1/auth/refresh-token                                        │
+│  Body: { "refreshToken": "random_string" }  ← IGNORED!                 │
+│                                                                         │
+│  Postman ALSO sends:                                                    │
+│  Cookie: refresh_token=<VALID_TOKEN_FROM_PREVIOUS_LOGIN>               │
+│         ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑         │
+│         This is what the server READS!                                 │
+│                                                                         │
+│  Server code:                                                          │
+│  const token = req.cookies?.refresh_token;  // ← From cookie           │
+│  // NOT: const token = req.body.refreshToken;  // ← NOT from body      │
+│                                                                         │
+│  Result: SUCCESS because cookie contains valid token!                  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Solution**:
+1. Clear cookies di Postman untuk test invalid token
+2. Gunakan curl tanpa cookie untuk test 401 response
+3. Lihat "Testing dengan httpOnly Cookie" section di bawah
+
+---
+
+### Problem: 401 Unauthorized "Refresh token not found"
+
+**Symptom**:
+```
+POST /api/v1/auth/refresh-token
+Response: 401 Unauthorized
+{
+  "success": false,
+  "message": "Refresh token not found. Please login again."
+}
+```
+
+**Possible Causes**:
+
+| Cause | Solution |
+|-------|----------|
+| Cookie tidak dikirim | Pastikan `credentials: 'include'` di fetch |
+| Cookie expired | Login ulang |
+| Cookie di-clear | Login ulang |
+| Berbeda domain/port | Cek CORS configuration |
+
+**Browser/Postman Configuration**:
+```javascript
+// Frontend fetch
+fetch('http://localhost:3000/api/v1/auth/refresh-token', {
+  method: 'POST',
+  credentials: 'include',  // ← WAJIB untuk kirim cookie
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+```
+
+---
+
+### Problem: CORS Error with Cookies
+
+**Symptom**:
+```
+Access to fetch at 'http://localhost:3000' from origin 'http://localhost:5173'
+has been blocked by CORS policy: Credential is not supported if the
+CORS header 'Access-Control-Allow-Origin' is '*'
+```
+
+**Cause**:
+Untuk mengirim cookie, CORS origin tidak bisa menggunakan wildcard (`*`).
+
+**Solution**: Pastikan konfigurasi CORS di `src/app.ts`:
+```typescript
+app.use(
+  cors({
+    origin: environment.corsOrigin,  // Specific origin, NOT '*'
+    credentials: true,                // ← WAJIB untuk cookie
+  }),
+);
+```
+
+**Environment variables**:
+```bash
+# .env
+CORS_ORIGIN=http://localhost:5173  # Specific origin, NOT '*'
+```
+
+---
+
+### Problem: Cookie Not Set in Browser
+
+**Symptom**:
+- Login berhasil (200 OK)
+- Tapi tidak ada cookie di browser DevTools
+- Refresh token selalu 401
+
+**Possible Causes**:
+
+| Cause | Check | Solution |
+|-------|-------|----------|
+| `httpOnly` cookie tidak visible di JS | Normal | Cek Application → Cookies di DevTools |
+| Wrong domain/path | Network tab | Cek Set-Cookie header di response |
+| Secure flag di HTTP | Dev | Use `NODE_ENV=development` for `secure: false` |
+| SameSite blocking | Network tab | Pastikan frontend dan backend same origin |
+
+**Checking Set-Cookie Header**:
+```
+1. Buka DevTools → Network tab
+2. Login request
+3. Lihat Response Headers
+4. Cari: Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Strict
+```
+
+---
+
+### Testing dengan httpOnly Cookie
+
+#### Postman Testing Guide
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         POSTMAN TESTING STEPS                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  STEP 1: LOGIN                                                          │
+│  ────────────                                                          │
+│  POST http://localhost:3000/api/v1/auth/login                          │
+│                                                                         │
+│  Body (raw JSON):                                                       │
+│  {                                                                      │
+│    "email": "test@example.com",                                        │
+│    "password": "password123"                                           │
+│  }                                                                      │
+│                                                                         │
+│  Response:                                                              │
+│  - 200 OK                                                               │
+│  - access_token di body                                                │
+│  - Set-Cookie header dengan refresh_token                              │
+│  - Postman otomatis simpan cookie                                       │
+│                                                                         │
+│  ────────────────────────────────────────────────────────────────────── │
+│                                                                         │
+│  STEP 2: CEK COOKIE                                                     │
+│  ────────────────────                                                   │
+│  1. Klik "Cookies" icon (glass jar) di bawah URL                      │
+│  2. Pilih "localhost:3000"                                             │
+│  3. Lihat cookie "refresh_token" disana                                 │
+│                                                                         │
+│  ────────────────────────────────────────────────────────────────────── │
+│                                                                         │
+│  STEP 3: REFRESH TOKEN                                                  │
+│  ──────────────────────────                                             │
+│  POST http://localhost:3000/api/v1/auth/refresh-token                   │
+│                                                                         │
+│  Body: KOSONG (tidak perlu apa-apa)                                    │
+│                                                                         │
+│  Response: 200 OK dengan access_token baru                             │
+│                                                                         │
+│  Catatan: Postman otomatis kirim cookie!                               │
+│                                                                         │
+│  ────────────────────────────────────────────────────────────────────── │
+│                                                                         │
+│  STEP 4: TEST INVALID TOKEN (Clear cookie dulu)                        │
+│  ───────────────────────────────────────────────────────────           │
+│  1. Open Cookies manager                                               │
+│  2. Delete "refresh_token"                                             │
+│  3. Send refresh request lagi                                          │
+│  4. Response: 401 Unauthorized ✓                                        │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### cURL Testing Guide
+
+```bash
+# 1. LOGIN - Save cookie ke file
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}' \
+  -c cookies.txt \
+  -v
+
+# 2. REFRESH - Gunakan cookie yang tersimpan
+curl -X POST http://localhost:3000/api/v1/auth/refresh-token \
+  -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -v
+
+# 3. TEST INVALID - Tanpa cookie (harus 401)
+curl -X POST http://localhost:3000/api/v1/auth/refresh-token \
+  -H "Content-Type: application/json" \
+  -v
+
+# Expected response:
+# HTTP/1.1 401 Unauthorized
+# {"success":false,"message":"Refresh token not found..."}
+```
+
+#### Browser Testing Guide
+
+```javascript
+// Buka Console di browser DevTools
+
+// 1. LOGIN
+fetch('http://localhost:3000/api/v1/auth/login', {
+  method: 'POST',
+  credentials: 'include',  // Penting untuk cookie
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'test@example.com',
+    password: 'password123'
+  })
+})
+.then(r => r.json())
+.then(data => {
+  console.log('Access Token:', data.data.tokens.accessToken);
+  localStorage.setItem('accessToken', data.data.tokens.accessToken);
+});
+
+// 2. CEK COOKIE (tidak bisa diakses via JS karena httpOnly)
+// Cek Application → Cookies di DevTools
+
+// 3. REFRESH TOKEN
+fetch('http://localhost:3000/api/v1/auth/refresh-token', {
+  method: 'POST',
+  credentials: 'include'  // Penting - browser kirim cookie otomatis
+})
+.then(r => r.json())
+.then(data => {
+  console.log('New Access Token:', data.data.tokens.accessToken);
+  localStorage.setItem('accessToken', data.data.tokens.accessToken);
+});
+
+// 4. TEST PROTECTED ROUTE
+fetch('http://localhost:3000/api/v1/auth/profile', {
+  headers: {
+    'Authorization': 'Bearer ' + localStorage.getItem('accessToken')
+  }
+})
+.then(r => r.json())
+.then(data => console.log('Profile:', data));
+```
+
+---
+
+## 14. Deployment
 
 ### Checklist Pra-Deployment
 

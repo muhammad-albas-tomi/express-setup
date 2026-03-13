@@ -54,28 +54,25 @@ export class AuthService {
     return { token, expires };
   }
 
-  private async generateAuthTokens(user: User): Promise<ITokens> {
-    const accessToken = await this.generateToken(
-      user.id,
-      AuthService.ACCESS_TOKEN_EXPIRY,
-    );
+  /**
+   * Generate access token dan refresh token
+   *
+   * Note: Refresh token disimpan ke database dan di-return untuk
+   * keperluan set httpOnly cookie di controller
+   */
+  private async generateAuthTokens(
+    user: User,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const accessToken = await this.generateToken(user.id, "30m");
     const { token: refreshToken, expires } = await this.generateRefreshToken();
 
-    // Save refresh token to database
     await prisma.session.create({
-      data: {
-        token: refreshToken,
-        userId: user.id,
-        expiresAt: expires,
-      },
+      data: { token: refreshToken, userId: user.id, expiresAt: expires },
     });
 
-    const accessExpires = new Date();
-    accessExpires.setMinutes(accessExpires.getMinutes() + 30);
-
     return {
-      accessToken: accessToken,
-      refreshToken: refreshToken,
+      accessToken,
+      refreshToken, // Return untuk set cookie di controller
     };
   }
 
